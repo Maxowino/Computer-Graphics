@@ -1,7 +1,7 @@
 // Checkpoint 1 - Pure C++ graphics foundation (no graphics libraries)
 // Project: "Rise of a City" - animated time-lapse
 // Build:  g++ -std=c++17 -O2 -Wall -Wextra checkpoint1.cpp -o cp1
-// Run:    ./cp1            -> writes cp1_scene.ppm
+
 
 #include <algorithm>
 #include <cmath>
@@ -41,7 +41,7 @@ public:
 };
 
 // ---------------------------------------------------------------- 2D primitives
-// Bresenham line (all octants, integer arithmetic only)
+// Bresenham line technique
 void drawLine(Framebuffer& fb, int x0, int y0, int x1, int y1, Color c) {
     int dx = std::abs(x1 - x0), dy = -std::abs(y1 - y0);
     int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
@@ -55,7 +55,7 @@ void drawLine(Framebuffer& fb, int x0, int y0, int x1, int y1, Color c) {
     }
 }
 
-// Midpoint circle (8-way symmetry)
+// Midpoint circle outline
 void drawCircle(Framebuffer& fb, int cx, int cy, int r, Color c) {
     int x = 0, y = r, d = 1 - r;
     while (x <= y) {
@@ -73,7 +73,7 @@ void fillCircle(Framebuffer& fb, int cx, int cy, int r, Color c) {
     for (int dy = -r; dy <= r; ++dy) {
         int half = static_cast<int>(std::sqrt(static_cast<double>(r * r - dy * dy)));
         for (int x = cx - half; x <= cx + half; ++x) fb.setPixel(x, cy + dy, c);
-    }
+    } 
 }
 
 // Scanline polygon fill (even-odd rule)
@@ -148,7 +148,7 @@ struct Mat4 {
     }
 };
 
-// ---------------------------------------------------------------- 3D helpers
+//  3D helpers
 const double PI = 3.14159265358979323846;
 
 struct Vec3 { double x, y, z; };
@@ -172,7 +172,7 @@ Color shade(Color c, double k) {
     return Color{f(c.r), f(c.g), f(c.b)};
 }
 
-// ---------------------------------------------------------------- 3D -> screen
+// 3D -> screen
 struct Screen { int x, y; bool ok; };
 
 Screen project(const Mat4& vp, double x, double y, double z, int W, int H) {
@@ -183,7 +183,7 @@ Screen project(const Mat4& vp, double x, double y, double z, int W, int H) {
              static_cast<int>(std::lround((1 - ny) * 0.5 * H)), true };
 }
 
-// Flat polygon on the ground plane (y = 0), filled in screen space
+// Flat polygon on the ground plane filled in screen space
 void fillGround(Framebuffer& fb, const Mat4& vp, const std::vector<Vec3>& pts, Color c) {
     std::vector<P2> poly;
     for (const Vec3& p : pts) {
@@ -201,7 +201,7 @@ void fillGroundRect(Framebuffer& fb, const Mat4& vp, double x0, double z0, doubl
 // ---------------------------------------------------------------- Solid boxes (buildings, trees)
 struct Box { double x0, z0, x1, z1, h; Color base; };
 
-// Draws the faces that point towards the camera (back-face culling),
+// back-face culling ie (Draws the faces that point towards the camera)
 // shaded by a fixed light direction, with Bresenham outlines.
 void drawBox(Framebuffer& fb, const Mat4& vp, Vec3 eye, const Box& b) {
     const Vec3 L = normalize({0.45, 0.8, 0.35});
@@ -232,7 +232,7 @@ void drawBox(Framebuffer& fb, const Mat4& vp, Vec3 eye, const Box& b) {
     }
 }
 
-// ---------------------------------------------------------------- Procedural city
+//  Procedural city
 static uint32_t g_seed = 12345;
 double rnd() {                                    // small deterministic random generator
     g_seed = g_seed * 1664525u + 1013904223u;
@@ -292,7 +292,7 @@ void buildCity(Framebuffer& fb, const Mat4& vp, std::vector<Box>& boxes) {
     }
 }
 
-// ---------------------------------------------------------------- Scene
+// Main Scene
 int main() {
     auto t0 = std::chrono::steady_clock::now();
     const int W = 960, H = 560;
@@ -331,8 +331,8 @@ int main() {
     });
     for (const Box& b : boxes) drawBox(fb, vp, eye, b);
 
-    if (!fb.savePPM("cp1_scene.ppm")) { std::fprintf(stderr, "Could not write file\n"); return 1; }
+    if (!fb.savePPM("scene1_scene.ppm")) { std::fprintf(stderr, "Could not write file\n"); return 1; }
     double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-    std::printf("Saved cp1_scene.ppm (%zu solids, %.0f ms)\n", boxes.size(), ms);
+    std::printf("Saved scene1_scene.ppm (%zu solids, %.0f ms)\n", boxes.size(), ms);
     return 0;
 }

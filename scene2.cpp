@@ -674,7 +674,7 @@ void renderFrame(Framebuffer& fb, const World& w, double t) {
     if (fade < 1.0) fb.overlay(Color{0, 0, 0}, 1.0 - fade);
 }
 
-// ======================================================================= Main
+// Main Scene 2 
 int main(int argc, char** argv) {
     World world;
     generateCity(world, 0, 0, N_MAIN, 0);
@@ -685,8 +685,8 @@ int main(int argc, char** argv) {
 
     if (mode == "still" && argc > 2) {
         renderFrame(fb, world, std::atof(argv[2]));
-        fb.savePPM("cp2_still.ppm");
-        std::puts("Saved cp2_still.ppm");
+        fb.savePPM("scene2_still.ppm");
+        std::puts("Saved scene2_still.ppm");
     } else if (mode == "seq" && argc > 4) {
         int fps = std::atoi(argv[2]); double from = std::atof(argv[3]), to = std::atof(argv[4]);
         int f0 = static_cast<int>(from * fps), f1 = static_cast<int>(to * fps);
@@ -711,7 +711,7 @@ int main(int argc, char** argv) {
         for (double t : times) {
             auto t0 = std::chrono::steady_clock::now();
             renderFrame(fb, world, t);
-            char name[64]; std::snprintf(name, sizeof name, "cp2_still_%03d.ppm", static_cast<int>(t));
+            char name[64]; std::snprintf(name, sizeof name, "scene2_still_%03d.ppm", static_cast<int>(t));
             fb.savePPM(name);
             double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
             std::printf("t=%6.1fs  %s  (%.0f ms)\n", t, name, ms);
