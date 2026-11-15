@@ -1,6 +1,14 @@
 // Checkpoint 1 - Pure C++ graphics foundation (no graphics libraries)
 // Project: "Rise of a City" - animated time-lapse
 // Build:  g++ -std=c++17 -O2 -Wall -Wextra checkpoint1.cpp -o cp1
+//
+// UPDATED (everything new is marked "NEW" or "CHANGED"):
+//   NEW  Box now has a base height y0 so parts can sit on top of other parts
+//   NEW  Statehouse landmark in the middle of the city, built only from boxes
+//        (steps, hall, columns, pediment, drum, gold dome, spire)
+//   NEW  Plaza in front of the statehouse with a leader on a podium (arms raised)
+//        and a crowd of citizens, built from the same box primitive
+//   NEW  Second picture: the plaza seen down the avenue (scene1_plaza.ppm)
 
 
 #include <algorithm>
@@ -199,20 +207,22 @@ void fillGroundRect(Framebuffer& fb, const Mat4& vp, double x0, double z0, doubl
 }
 
 // ---------------------------------------------------------------- Solid boxes (buildings, trees)
-struct Box { double x0, z0, x1, z1, h; Color base; };
+// CHANGED: y0 = height of the bottom of the box (default 0 = standing on the ground).
+// A box going from y0 up to h lets a column stand on a step and a dome sit on a drum.
+struct Box { double x0, z0, x1, z1, h; Color base; double y0 = 0; };
 
 // back-face culling ie (Draws the faces that point towards the camera)
 // shaded by a fixed light direction, with Bresenham outlines.
 void drawBox(Framebuffer& fb, const Mat4& vp, Vec3 eye, const Box& b) {
     const Vec3 L = normalize({0.45, 0.8, 0.35});
     struct Face { Vec3 p[4]; Vec3 n; };
-    const double x0 = b.x0, x1 = b.x1, z0 = b.z0, z1 = b.z1, h = b.h;
+    const double x0 = b.x0, x1 = b.x1, z0 = b.z0, z1 = b.z1, h = b.h, y0 = b.y0;   // CHANGED: y0
     const Face faces[5] = {
         {{{x0, h, z0}, {x1, h, z0}, {x1, h, z1}, {x0, h, z1}}, { 0, 1,  0}},   // top
-        {{{x1, 0, z0}, {x1, 0, z1}, {x1, h, z1}, {x1, h, z0}}, { 1, 0,  0}},   // +x side
-        {{{x0, 0, z0}, {x0, 0, z1}, {x0, h, z1}, {x0, h, z0}}, {-1, 0,  0}},   // -x side
-        {{{x0, 0, z1}, {x1, 0, z1}, {x1, h, z1}, {x0, h, z1}}, { 0, 0,  1}},   // +z side
-        {{{x0, 0, z0}, {x1, 0, z0}, {x1, h, z0}, {x0, h, z0}}, { 0, 0, -1}},   // -z side
+        {{{x1, y0, z0}, {x1, y0, z1}, {x1, h, z1}, {x1, h, z0}}, { 1, 0,  0}},   // +x side
+        {{{x0, y0, z0}, {x0, y0, z1}, {x0, h, z1}, {x0, h, z0}}, {-1, 0,  0}},   // -x side
+        {{{x0, y0, z1}, {x1, y0, z1}, {x1, h, z1}, {x0, h, z1}}, { 0, 0,  1}},   // +z side
+        {{{x0, y0, z0}, {x1, y0, z0}, {x1, h, z0}, {x0, h, z0}}, { 0, 0, -1}},   // -z side
     };
     for (const Face& f : faces) {
         Vec3 centre{(f.p[0].x + f.p[2].x) / 2, (f.p[0].y + f.p[2].y) / 2, (f.p[0].z + f.p[2].z) / 2};
@@ -244,6 +254,54 @@ const double PITCH = 8.0;    // block + road
 const double BLOCK = 6.0;    // block size
 const double HALF  = N * PITCH / 2.0;   // half the city width (36)
 
+// ---------------------------------------------------------------- NEW: statehouse
+// The landmark of the city, centred on the middle block (x, z in -3..3).
+// Only boxes: every part is {x0, z0, x1, z1, top, colour} plus a bottom height y0.
+void addStatehouse(std::vector<Box>& boxes) {
+    const Color stone{200, 195, 185}, white{240, 236, 228}, gold{225, 190, 70};
+    auto part = [&](double x0, double x1, double z0, double z1, double y0, double y1, Color c) {
+        Box b{x0, z0, x1, z1, y1, c}; b.y0 = y0; boxes.push_back(b);
+    };
+    part(-3.0, 3.0, -3.0, 3.0, 0.0, 0.5, stone);            // base slab
+    part(-2.7, 2.7, -2.7, 2.7, 0.5, 1.0, stone);            // steps
+    part(-2.2, 2.2, -2.0, 1.2, 1.0, 4.6, white);            // main hall
+    for (int i = 0; i < 6; ++i) {                            // six columns in front
+        double x = -2.0 + 0.8 * i;
+        part(x - 0.15, x + 0.15, 1.3, 1.65, 1.0, 4.4, white);
+    }
+    part(-2.4, 2.4, 1.2, 1.9, 4.4, 4.9, stone);             // entablature above the columns
+    part(-2.3, 2.3, -2.1, 1.3, 4.6, 4.9, stone);            // hall roof
+    part(-2.0, 2.0, 1.2, 1.9, 4.9, 5.4, white);             // pediment (stacked slabs = triangle)
+    part(-1.2, 1.2, 1.2, 1.9, 5.4, 5.9, white);
+    part(-1.1, 1.1, -1.5, 0.7, 4.9, 6.4, white);            // drum
+    part(-0.9, 0.9, -1.3, 0.5, 6.4, 7.1, gold);             // gold dome (two tiers)
+    part(-0.55, 0.55, -0.95, 0.15, 7.1, 7.6, gold);
+    part(-0.08, 0.08, -0.48, -0.32, 7.6, 9.0, gold);        // spire
+}
+
+// ---------------------------------------------------------------- NEW: leader and crowd
+// Plaza = the two blocks south of the statehouse (x -3..3, z 5..19).
+// The leader stands on a podium facing +z, the citizens stand in rows in front of him.
+void addRally(std::vector<Box>& boxes) {
+    const Color skin{225, 175, 140}, gold{220, 170, 40}, grey{150, 140, 130};
+    auto part = [&](double x0, double x1, double z0, double z1, double y0, double y1, Color c) {
+        Box b{x0, z0, x1, z1, y1, c}; b.y0 = y0; boxes.push_back(b);
+    };
+    part(-1.3, 1.3, 5.4, 7.0, 0.0, 1.2, grey);              // podium
+    part(-0.32, 0.32, 6.0, 6.4, 1.2, 2.7, gold);            // torso
+    part(-0.20, 0.20, 6.05, 6.35, 2.8, 3.2, skin);          // head
+    part(-0.60, -0.42, 6.1, 6.3, 2.5, 3.6, gold);           // arms raised above the shoulders
+    part( 0.42,  0.60, 6.1, 6.3, 2.5, 3.6, gold);
+    const Color shirts[6] = {{180, 60, 60}, {60, 90, 170}, {70, 140, 80}, {200, 160, 60}, {120, 80, 150}, {90, 90, 100}};
+    for (int j = 0; j < 7; ++j)                              // 8 x 7 = 56 citizens
+        for (int i = 0; i < 8; ++i) {
+            double x = -2.8 + i * 0.8, z = 8.6 + j * 0.85;
+            Color c = shirts[(i * 5 + j * 3) % 6];
+            part(x - 0.17, x + 0.17, z - 0.14, z + 0.14, 0.0, 0.95, c);       // body
+            part(x - 0.13, x + 0.13, z - 0.13, z + 0.13, 0.95, 1.22, skin);   // head
+        }
+}
+
 // Fills 'boxes' with buildings/trees and draws the ground layer
 void buildCity(Framebuffer& fb, const Mat4& vp, std::vector<Box>& boxes) {
     // roads: one large slab, dashed centre lines drawn on top
@@ -266,6 +324,17 @@ void buildCity(Framebuffer& fb, const Mat4& vp, std::vector<Box>& boxes) {
             double bx = -HALF + i * PITCH + 1.0, bz = -HALF + j * PITCH + 1.0;
             double dist = std::sqrt((i - 4.0) * (i - 4.0) + (j - 4.0) * (j - 4.0));
             bool park = dist >= 2.5 && ((i * 7 + j * 13) % 11 == 0);
+
+            // NEW: the middle block holds the statehouse, the two blocks south of it are the plaza
+            if (i == 4 && j == 4) {
+                fillGroundRect(fb, vp, bx, bz, bx + BLOCK, bz + BLOCK, Color{170, 168, 160});
+                addStatehouse(boxes);
+                continue;
+            }
+            if (i == 4 && (j == 5 || j == 6)) {
+                fillGroundRect(fb, vp, bx, bz, bx + BLOCK, bz + BLOCK, Color{190, 185, 172});   // plaza paving
+                continue;
+            }
 
             if (park) {                                                    // park with trees
                 fillGroundRect(fb, vp, bx, bz, bx + BLOCK, bz + BLOCK, Color{85, 160, 90});
@@ -290,13 +359,16 @@ void buildCity(Framebuffer& fb, const Mat4& vp, std::vector<Box>& boxes) {
             }
         }
     }
+    addRally(boxes);                                                       // NEW: leader + crowd on the plaza
 }
 
-// Main Scene
-int main() {
+// ---------------------------------------------------------------- Rendering one view
+// CHANGED: the original main() is now a function so that we can render two views.
+void renderView(const char* file, Vec3 eye, Vec3 target, double fovDeg, bool showSun) {
     auto t0 = std::chrono::steady_clock::now();
     const int W = 960, H = 560;
     Framebuffer fb(W, H);
+    g_seed = 12345;                                          // same city every time
 
     // Sky: vertical gradient
     for (int y = 0; y < H; ++y) {
@@ -305,13 +377,14 @@ int main() {
                  static_cast<uint8_t>(190 + 40 * t) };
         for (int x = 0; x < W; ++x) fb.setPixel(x, y, c);
     }
-    fillCircle(fb, 800, 85, 34, Color{255, 215, 110});      // sun
-    drawCircle(fb, 800, 85, 36, Color{255, 240, 170});
+    if (showSun) {
+        fillCircle(fb, 800, 85, 34, Color{255, 215, 110});      // sun
+        drawCircle(fb, 800, 85, 36, Color{255, 240, 170});
+    }
 
     // Camera
-    Vec3 eye{70, 48, 70};
-    Mat4 view = lookAt(eye, Vec3{0, 4, 0}, Vec3{0, 1, 0});
-    Mat4 proj = Mat4::perspective(36.0 * PI / 180.0, static_cast<double>(W) / H, 0.1, 400.0);
+    Mat4 view = lookAt(eye, target, Vec3{0, 1, 0});
+    Mat4 proj = Mat4::perspective(fovDeg * PI / 180.0, static_cast<double>(W) / H, 0.1, 400.0);
     Mat4 vp = proj * view;
 
     // Land and sea (sea edge uses a wavy shoreline)
@@ -324,15 +397,22 @@ int main() {
     // City ground layer, then solid boxes sorted back-to-front (painter's algorithm)
     std::vector<Box> boxes;
     buildCity(fb, vp, boxes);
-    std::sort(boxes.begin(), boxes.end(), [&](const Box& a, const Box& b) {
-        double da = std::pow((a.x0 + a.x1) / 2 - eye.x, 2) + std::pow((a.z0 + a.z1) / 2 - eye.z, 2);
-        double db = std::pow((b.x0 + b.x1) / 2 - eye.x, 2) + std::pow((b.z0 + b.z1) / 2 - eye.z, 2);
-        return da > db;
-    });
+    // CHANGED: small height term so a part sitting on another part is drawn after it
+    auto key = [&](const Box& a) {
+        double dx = (a.x0 + a.x1) / 2 - eye.x, dz = (a.z0 + a.z1) / 2 - eye.z;
+        return dx * dx + dz * dz - 4.0 * (a.y0 + a.h) / 2;
+    };
+    std::sort(boxes.begin(), boxes.end(), [&](const Box& a, const Box& b) { return key(a) > key(b); });
     for (const Box& b : boxes) drawBox(fb, vp, eye, b);
 
-    if (!fb.savePPM("scene1_scene.ppm")) { std::fprintf(stderr, "Could not write file\n"); return 1; }
+    if (!fb.savePPM(file)) { std::fprintf(stderr, "Could not write file\n"); return; }
     double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-    std::printf("Saved scene1_scene.ppm (%zu solids, %.0f ms)\n", boxes.size(), ms);
+    std::printf("Saved %s (%zu solids, %.0f ms)\n", file, boxes.size(), ms);
+}
+
+// Main Scene
+int main() {
+    renderView("scene1_scene.ppm", Vec3{70, 48, 70}, Vec3{0, 4, 0}, 36.0, true);      // original view
+    renderView("scene1_plaza.ppm", Vec3{0, 22, 66}, Vec3{0, 3.5, 6}, 28.0, false);    // NEW: down the avenue
     return 0;
 }
