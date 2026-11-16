@@ -1,4 +1,4 @@
-// Checkpoint 2 - Transformations and animation in pure C++ (no graphics libraries)
+
 
 //
 // Builds on Checkpoint 1 (framebuffer, Bresenham, midpoint circle, scanline fill,
@@ -9,19 +9,7 @@
 //   - Scale animation (buildings grow), shear + scale (collapse), translation (cars)
 //   - Rotation of the missile along the curve tangent
 //   - Stateless particle system with gravity (explosions, smoke), alpha blending
-//
-// 
-//   NEW  Statehouse in the middle of the city, made of 17 chunks that grow with the city
-//   NEW  Mid-battle statehouse strike: camera CUT to a close-up from the plaza, global
-//        SLOW MOTION (time warp), and the chunks fly apart with rotation + gravity
-//        (translate * rotateX * rotateY * rotateZ * scale matrices, no shear)
-//   NEW  Escalation: after the strike the barrage grows from 1 impact every ~2 s to
-//        several per second
-//   NEW  Leader on a podium urging a crowd of citizens; the arms are children of the
-//        shoulder joint (hierarchical transform: translate * rotateZ * translate * scale)
-//   NEW  Camera keyframes can be hard cuts; bigger shake, flash and fireball for the strike
-//   CHANGED  film time vs story time: the slow motion makes the film 10.5 s longer
-//
+
 // Build:  g++ -std=c++17 -O2 -Wall -Wextra scene2.cpp -o scene2
 // Usage (all times are FILM seconds):
 //   ./scene2                         key stills of the story  -> scene2_still_XXXX.ppm
@@ -382,8 +370,7 @@ void drawBox(Framebuffer& fb, const Mat4& vp, Vec3 eye, const Box& b, double bri
     }
 }
 
-// NEW: a unit cube centred on the origin, moved by ANY model matrix (rotation included).
-// Used for the flying statehouse chunks, the leader's arms and the citizens.
+
 void drawBoxM(Framebuffer& fb, const Mat4& vp, Vec3 eye, const Mat4& M, Color base, double bright) {
     Vec3 c[8];
     for (int i = 0; i < 8; ++i) {
@@ -427,10 +414,10 @@ struct Building {
     Vec3 vel{0, 0, 0}, spin{0, 0, 0};
     double tland = 0;              // seconds after the strike until the chunk lies on the ground
 };
-struct Block   { double x0, z0; bool park; int city; bool plaza = false; };      // CHANGED: plaza flag
-struct Missile { Vec3 p0, p1, p2, p3; double launchT, flightT; bool big = false; };   // CHANGED: big = statehouse missile
+struct Block   { double x0, z0; bool park; int city; bool plaza = false; };      
+struct Missile { Vec3 p0, p1, p2, p3; double launchT, flightT; bool big = false; };   
 struct Car     { int road; bool alongX; double lane, speed, offset, dir, startT, endT; Color col; };
-struct Person  { double x, z, phase, appear; Color col; };                       // NEW: citizen in the crowd
+struct Person  { double x, z, phase, appear; Color col; };                       // citizen in the crowd
 
 struct World {
     std::vector<Building> buildings;
@@ -440,7 +427,7 @@ struct World {
     std::vector<Person> crowd;     // NEW
 };
 
-// NEW: the statehouse, 17 box chunks around the middle block (x, z in -3..3).
+// 17 box chunks around the middle block (x, z in -3..3).
 // Each chunk gets its own launch velocity and spin for the explosion (from a hash, so
 // the sequence of rnd() used for the city is not disturbed).
 void addStatehouse(World& w) {
@@ -554,9 +541,9 @@ void makeCrowd(World& w) {
 }
 
 // Plans the attack: missiles on Bezier paths, collapse times for nearby buildings, traffic
-// CHANGED: instead of 20 evenly spaced missiles the battle now has three beats:
+
 //   1) first volley: 6 missiles on the western districts      (impacts 236 ... 263)
-//   2) the statehouse missile                                  (impact SH_T = 266)
+//   2) the  center missile                                  (impact SH_T = 266)
 //   3) escalation: 26 missiles, the gaps shrink from ~2 s to ~0.3 s (impacts 270 ... 300)
 void planWar(World& w) {
     struct Shot { Vec3 T; double impactT; bool big; };
@@ -616,10 +603,10 @@ const CamKey CAM[] = {
     {240, {60, 40, 45},  {-55, 15, 0}},   // launch
     {258, {50, 34, 62},  {-6, 9, 0}},     // NEW: swing back to the city, first volley is landing
     {261, {0, 3.5, 22},  {0, 6.0, 0}, true},   // NEW: CUT, low shot of the statehouse from the avenue
-    {266.5, {0, 4.5, 18.5}, {0, 6.5, 0}}, // NEW: push in while the missile arrives (slow motion starts at 265)
-    {273, {-3.5, 7, 22}, {0, 4, 0}},      // NEW: drift sideways over the falling debris (stays in the avenue)
-    {274, {0, 3.6, 17.5}, {0, 3.2, 5}, true},  // NEW: CUT, the leader seen over the crowd
-    {290, {0, 3.0, 14.5}, {0, 3.4, 5.5}}, // NEW: slow push in on the speech (the barrage rages behind)
+    {266.5, {0, 4.5, 18.5}, {0, 6.5, 0}}, // push in while the missile arrives (slow motion starts at 265)
+    {273, {-3.5, 7, 22}, {0, 4, 0}},      //  drift sideways over the falling debris (stays in the avenue)
+    {274, {0, 3.6, 17.5}, {0, 3.2, 5}, true},  //  CUT, the leader seen over the crowd
+    {290, {0, 3.0, 14.5}, {0, 3.4, 5.5}}, // slow push in on the speech (the barrage rages behind)
     {291, {60, 38, 60},  {-5, 6, 0}, true},    // NEW: CUT, wide shot of the escalation
     {300, {70, 52, 60},  {0, 3, 0}},      // aftermath
     {330, {110, 70, 95}, {0, 3, 0}},      // slow pull-back
@@ -629,7 +616,7 @@ void cameraAt(double t, Vec3& eye, Vec3& target) {
     if (t <= CAM[0].t) { eye = CAM[0].eye; target = CAM[0].target; return; }
     for (int i = 0; i + 1 < n; ++i) {
         if (t <= CAM[i + 1].t) {
-            if (CAM[i + 1].cut) { eye = CAM[i].eye; target = CAM[i].target; return; }   // NEW: hold until the cut
+            if (CAM[i + 1].cut) { eye = CAM[i].eye; target = CAM[i].target; return; }   //  hold until the cut
             double u = smoothstep((t - CAM[i].t) / (CAM[i + 1].t - CAM[i].t));
             eye = lerp(CAM[i].eye, CAM[i + 1].eye, u); target = lerp(CAM[i].target, CAM[i + 1].target, u);
             return;
@@ -662,7 +649,7 @@ SkyKey skyAt(double t) {
 }
 
 // ======================================================================= Effects
-// CHANGED: sc = size of the explosion (1 = normal missile, 2.4 = the statehouse strike)
+// CHANGED: sc = size of the explosion (1 = normal missile, 2.4 = the center strike)
 void drawExplosion(Framebuffer& fb, const Mat4& vp, Vec3 P, double age, int id, double sc = 1.0) {
     if (age < 0) return;
     if (age < 1.5) {                                           // shockwave ring on the ground
@@ -740,7 +727,7 @@ void renderFrame(Framebuffer& fb, const World& w, double filmT) {
         }
     }
 
-    // camera with a short shake after each impact (CHANGED: the statehouse strike shakes harder and longer)
+    // camera with a short shake after each impact (CHANGED: the center strike shakes harder and longer)
     Vec3 eye, target; cameraAt(t, eye, target);
     Vec3 shake = {0, 0, 0};
     for (size_t i = 0; i < w.missiles.size(); ++i) {
@@ -787,7 +774,7 @@ void renderFrame(Framebuffer& fb, const World& w, double filmT) {
         fillGroundRect(fb, vp, b.x0, b.z0, b.x0 + BLOCK, b.z0 + BLOCK, shade(c, bright));
     }
 
-    // CHANGED: every solid goes into one list so that boxes and rotated boxes are sorted together
+    // every solid goes into one list so that boxes and rotated boxes are sorted together
     // (painter's algorithm: far first; a small height term draws a part after the part below it).
     struct Solid { double key; bool useM; Box b; Mat4 m; Color c; };
     std::vector<Solid> solids;
@@ -806,7 +793,7 @@ void renderFrame(Framebuffer& fb, const World& w, double filmT) {
     for (const Building& b : w.buildings) {
         double grow = t <= b.growStart ? 0 : easeOutCubic((t - b.growStart) / b.growDur);
         if (grow <= 0) continue;
-        if (b.sh) {                                              // NEW: statehouse chunk
+        if (b.sh) {                                              // NEW: center townhouse chunk
             if (t < SH_T) {
                 Box x = b.box; x.y0 = b.box.y0 * grow; x.h = b.box.h * grow;      // scale animation, bottom-up
                 pushBox(x);
@@ -843,7 +830,7 @@ void renderFrame(Framebuffer& fb, const World& w, double filmT) {
         pushBox({-1.4, -1.4, 1.4, 1.4, 9.0 * g, Color{200, 225, 255}});
     }
 
-    // NEW: the leader on his podium and the crowd (hierarchical transforms)
+    // the leader on his podium and the crowd (hierarchical transforms)
     if (t >= RALLY_T) {
         const Color skin{225, 175, 140}, gold{220, 170, 40}, grey{150, 140, 130};
         double pop = easeOutCubic((t - RALLY_T) / 1.5);
@@ -940,7 +927,7 @@ int main(int argc, char** argv) {
             fb.writePPM(stdout);
         }
     } else {
-        // CHANGED: the list is in STORY seconds and covers the new beats; filmTime() converts it
+        //  the list is in STORY seconds and covers the new beats; filmTime() converts it
         const double story[] = {10, 60, 150, 195, 238, 258, 262, 266.3, 267, 268.5, 272, 280, 288, 296, 318};
         for (double st : story) {
             auto t0 = std::chrono::steady_clock::now();

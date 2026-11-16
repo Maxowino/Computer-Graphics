@@ -1,15 +1,6 @@
-// Checkpoint 1 - Pure C++ graphics foundation (no graphics libraries)
-// Project: "Rise of a City" - animated time-lapse
-// Build:  g++ -std=c++17 -O2 -Wall -Wextra checkpoint1.cpp -o cp1
-//
-// UPDATED (everything new is marked "NEW" or "CHANGED"):
-//   NEW  Box now has a base height y0 so parts can sit on top of other parts
-//   NEW  Statehouse landmark in the middle of the city, built only from boxes
-//        (steps, hall, columns, pediment, drum, gold dome, spire)
-//   NEW  Plaza in front of the statehouse with a leader on a podium (arms raised)
-//        and a crowd of citizens, built from the same box primitive
-//   NEW  Second picture: the plaza seen down the avenue (scene1_plaza.ppm)
 
+
+// Build:  g++ -std=c++17 -O2 -Wall -Wextra checkpoint1.cpp -o cp1
 
 #include <algorithm>
 #include <cmath>
@@ -207,7 +198,7 @@ void fillGroundRect(Framebuffer& fb, const Mat4& vp, double x0, double z0, doubl
 }
 
 // ---------------------------------------------------------------- Solid boxes (buildings, trees)
-// CHANGED: y0 = height of the bottom of the box (default 0 = standing on the ground).
+// y0 = height of the bottom of the box (default 0 = standing on the ground).
 // A box going from y0 up to h lets a column stand on a step and a dome sit on a drum.
 struct Box { double x0, z0, x1, z1, h; Color base; double y0 = 0; };
 
@@ -216,7 +207,7 @@ struct Box { double x0, z0, x1, z1, h; Color base; double y0 = 0; };
 void drawBox(Framebuffer& fb, const Mat4& vp, Vec3 eye, const Box& b) {
     const Vec3 L = normalize({0.45, 0.8, 0.35});
     struct Face { Vec3 p[4]; Vec3 n; };
-    const double x0 = b.x0, x1 = b.x1, z0 = b.z0, z1 = b.z1, h = b.h, y0 = b.y0;   // CHANGED: y0
+    const double x0 = b.x0, x1 = b.x1, z0 = b.z0, z1 = b.z1, h = b.h, y0 = b.y0;   //  y0
     const Face faces[5] = {
         {{{x0, h, z0}, {x1, h, z0}, {x1, h, z1}, {x0, h, z1}}, { 0, 1,  0}},   // top
         {{{x1, y0, z0}, {x1, y0, z1}, {x1, h, z1}, {x1, h, z0}}, { 1, 0,  0}},   // +x side
@@ -254,7 +245,7 @@ const double PITCH = 8.0;    // block + road
 const double BLOCK = 6.0;    // block size
 const double HALF  = N * PITCH / 2.0;   // half the city width (36)
 
-// ---------------------------------------------------------------- NEW: statehouse
+
 // The landmark of the city, centred on the middle block (x, z in -3..3).
 // Only boxes: every part is {x0, z0, x1, z1, top, colour} plus a bottom height y0.
 void addStatehouse(std::vector<Box>& boxes) {
@@ -279,9 +270,6 @@ void addStatehouse(std::vector<Box>& boxes) {
     part(-0.08, 0.08, -0.48, -0.32, 7.6, 9.0, gold);        // spire
 }
 
-// ---------------------------------------------------------------- NEW: leader and crowd
-// Plaza = the two blocks south of the statehouse (x -3..3, z 5..19).
-// The leader stands on a podium facing +z, the citizens stand in rows in front of him.
 void addRally(std::vector<Box>& boxes) {
     const Color skin{225, 175, 140}, gold{220, 170, 40}, grey{150, 140, 130};
     auto part = [&](double x0, double x1, double z0, double z1, double y0, double y1, Color c) {
@@ -325,7 +313,7 @@ void buildCity(Framebuffer& fb, const Mat4& vp, std::vector<Box>& boxes) {
             double dist = std::sqrt((i - 4.0) * (i - 4.0) + (j - 4.0) * (j - 4.0));
             bool park = dist >= 2.5 && ((i * 7 + j * 13) % 11 == 0);
 
-            // NEW: the middle block holds the statehouse, the two blocks south of it are the plaza
+            // the middle block holds the center townhouse, the two blocks south of it are the plaza
             if (i == 4 && j == 4) {
                 fillGroundRect(fb, vp, bx, bz, bx + BLOCK, bz + BLOCK, Color{170, 168, 160});
                 addStatehouse(boxes);
@@ -359,11 +347,11 @@ void buildCity(Framebuffer& fb, const Mat4& vp, std::vector<Box>& boxes) {
             }
         }
     }
-    addRally(boxes);                                                       // NEW: leader + crowd on the plaza
+    addRally(boxes);                                                       //leader + crowd on the plaza
 }
 
 // ---------------------------------------------------------------- Rendering one view
-// CHANGED: the original main() is now a function so that we can render two views.
+//  the original main() is now a function so that we can render two views.
 void renderView(const char* file, Vec3 eye, Vec3 target, double fovDeg, bool showSun) {
     auto t0 = std::chrono::steady_clock::now();
     const int W = 960, H = 560;
@@ -397,7 +385,7 @@ void renderView(const char* file, Vec3 eye, Vec3 target, double fovDeg, bool sho
     // City ground layer, then solid boxes sorted back-to-front (painter's algorithm)
     std::vector<Box> boxes;
     buildCity(fb, vp, boxes);
-    // CHANGED: small height term so a part sitting on another part is drawn after it
+// CHANGED: small height term so a part sitting on another part is drawn after it
     auto key = [&](const Box& a) {
         double dx = (a.x0 + a.x1) / 2 - eye.x, dz = (a.z0 + a.z1) / 2 - eye.z;
         return dx * dx + dz * dz - 4.0 * (a.y0 + a.h) / 2;

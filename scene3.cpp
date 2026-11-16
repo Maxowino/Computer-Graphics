@@ -1,24 +1,12 @@
 // Checkpoint 3 - OpenGL integration
-// Project: "Rise and Fall of a City" - 5 min 40 s animated story
 //
 // The pure C++ work from scenes  1 and 2 is reused as it is:
 //   Vec3 / Mat4 / lookAt / perspective   -> loaded straight into OpenGL (glLoadMatrixd)
 //   cubic Bezier + tangent               -> missile paths, missile orientation
 //   easing + keyframes                   -> camera path and sky colours
 //   procedural city, collapse timing     -> same generator and the same war plan
-// Only the RENDERER changes: the software rasteriser is replaced by OpenGL, which gives us
-//   depth buffer (no painter's sorting), lighting, fog, alpha/additive blending, textured particles,
-//   the OpenGL matrix stack (glPushMatrix / glTranslated / glScaled / glMultMatrixd for shear).
 //
-// UPDATED (everything new is marked "NEW" or "CHANGED"):
-//   NEW  Statehouse in the middle of the city (17 chunks), grows with the city
-//   NEW  Mid-battle statehouse strike: camera CUT to a close-up from the avenue, global slow
-//        motion (time warp), chunks fly apart (glTranslated + glRotated x3 + glScaled)
-//   NEW  Escalation: the barrage speeds up after the strike (same war plan as scene 2)
-//   NEW  Leader on a podium urging a crowd; the arms hang off the shoulder joints with the
-//        OpenGL matrix stack (glPushMatrix, glTranslated shoulder, glRotated, glTranslated, glScaled)
-//   NEW  Camera hard cuts, stronger shake / flash / light / fireball for the strike
-//   CHANGED  film time vs story time: the slow motion makes the film 10.5 s longer
+// 
 //
 // Uses fixed-function OpenGL 1.x + GLFW (window and input only), so no GLAD/GLEW is needed.
 //
