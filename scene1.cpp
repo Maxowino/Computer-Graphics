@@ -385,7 +385,7 @@ void renderView(const char* file, Vec3 eye, Vec3 target, double fovDeg, bool sho
     // City ground layer, then solid boxes sorted back-to-front (painter's algorithm)
     std::vector<Box> boxes;
     buildCity(fb, vp, boxes);
-// CHANGED: small height term so a part sitting on another part is drawn after it
+// small height term so a part sitting on another part is drawn after it
     auto key = [&](const Box& a) {
         double dx = (a.x0 + a.x1) / 2 - eye.x, dz = (a.z0 + a.z1) / 2 - eye.z;
         return dx * dx + dz * dz - 4.0 * (a.y0 + a.h) / 2;
