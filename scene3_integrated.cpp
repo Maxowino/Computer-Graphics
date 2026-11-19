@@ -1121,7 +1121,7 @@ int main(int argc, char** argv) {
 
     if (!glfwInit()) { std::fprintf(stderr, "Could not start GLFW\n"); return 1; }
     glfwWindowHint(GLFW_SAMPLES, 4);
-    GLFWwindow* win = glfwCreateWindow(1280, 720, "Rise and Fall of a City", nullptr, nullptr);
+    GLFWwindow* win = glfwCreateWindow(1280, 720, "Animation Demo", nullptr, nullptr);
     if (!win) { std::fprintf(stderr, "Could not create an OpenGL window\n"); glfwTerminate(); return 1; }
     glfwMakeContextCurrent(win);
     glfwSwapInterval(1);
@@ -1182,7 +1182,7 @@ int main(int argc, char** argv) {
         if (titleTimer > 0.25) {
             titleTimer = 0;
             char title[192]; int s = static_cast<int>(g_app.t), e = static_cast<int>(FILM_TIME);
-            std::snprintf(title, sizeof title, "Rise and Fall of a City | %d:%02d / %d:%02d | x%.2g%s%s",
+            std::snprintf(title, sizeof title, "Animation Demo | %d:%02d / %d:%02d | x%.2g%s%s",
                           s / 60, s % 60, e / 60, e % 60, g_app.speed,
                           g_app.paused ? " | PAUSED" : "", g_app.cam.on ? " | FREE CAMERA" : "");
             glfwSetWindowTitle(win, title);
