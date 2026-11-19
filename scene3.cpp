@@ -11,19 +11,19 @@
 // Uses fixed-function OpenGL 1.x + GLFW (window and input only), so no GLAD/GLEW is needed.
 //
 // Build
-//   Windows (MSYS2 UCRT64): g++ -std=c++17 -O2 scene3.cpp -o cp3 -lglfw3 -lopengl32 -lgdi32
-//   Linux:                  g++ -std=c++17 -O2 scene3.cpp -o cp3 -lglfw -lGL
-//   macOS (Homebrew):       g++ -std=c++17 -O2 scene3.cpp -o cp3 -I/opt/homebrew/include -L/opt/homebrew/lib -lglfw -framework OpenGL
+//   Windows (MSYS2 UCRT64): g++ -std=c++17 -O2 scene3.cpp -o graphicsdemo.exe -lglfw3 -lopengl32 -lgdi32
+//   Linux:                  g++ -std=c++17 -O2 scene3.cpp -o graphicsdemo.exe -lglfw -lGL
+//   macOS (Homebrew):       g++ -std=c++17 -O2 scene3.cpp -o graphicsdemo.exe -I/opt/homebrew/include -L/opt/homebrew/lib -lglfw -framework OpenGL
 //
 // Controls:
 //   SPACE pause/resume   LEFT/RIGHT seek -/+ 5 s   UP/DOWN speed x2 / /2   R restart
-//   1..8 jump: 1 start, 2 rise, 3 peak, 4 tension, 5 launch, 6 statehouse close-up, 7 rally, 8 aftermath
+//   1..9 jump to major story sections, including the final sewer rebellion
 //   F free camera (WASD move, Q/E down/up, hold left mouse button to look, SHIFT faster)
 //   S save screenshot (PPM)   ESC quit
 // Command line (all times are FILM seconds):
-//   ./scene3                       play from the start
-//   ./scene3 <seconds>             start at that time
-//   ./scene3 --shot <seconds> <file.ppm>   render one frame to a file and exit
+//   ./graphicsdemo.exe             play from the start
+//   ./graphicsdemo.exe <seconds>             start at that time
+//   ./graphicsdemo.exe --shot <seconds> <file.ppm>   render one frame to a file and exit
 
 #define GL_SILENCE_DEPRECATION
 #include <GLFW/glfw3.h>
@@ -39,7 +39,7 @@
 
 const double PI = 3.14159265358979323846;
 const double FOV_Y = 36.0 * PI / 180.0;
-const double TOTAL_TIME = 330.0;                       // length of the STORY (5 min 30 s)
+const double TOTAL_TIME = 350.0;                       // extended story: sewer-rebellion ending
 const double REF_W = 960, REF_H = 560;                 // reference screen size used for the sun arc
 
 // ---- NEW: story beats and slow motion (same as Checkpoint 2) --------------------------
@@ -337,6 +337,32 @@ void planWar(World& w) {
         b.collapseDur = 3 + rnd() * 2;
         b.shearX = (rnd() - 0.5) * 1.2; b.shearZ = (rnd() - 0.5) * 1.2;
     }
+    // City A retaliates after the first attack. These missiles target City B,
+    // so the attacking city is ultimately the one that falls.
+    const double counterImpacts[5] = {306, 309, 312, 315, 318};
+    for (int i = 0; i < 5; ++i) {
+        Vec3 T{RIVAL_CENTRE.x + (rnd() - 0.5) * 30.0, 5.0, (rnd() - 0.5) * 30.0};
+        Missile m;
+        m.p0 = {0.0, 3.0, 0.0};
+        m.p1 = {-38.0, 72.0 + rnd() * 18.0, T.z * 0.25};
+        m.p2 = T + Vec3{45.0, 65.0 + rnd() * 15.0, -T.z * 0.15};
+        m.p3 = T;
+        m.flightT = 18.0; m.launchT = counterImpacts[i] - m.flightT; m.big = (i == 0);
+        w.missiles.push_back(m);
+    }
+    for (Building& b : w.buildings) {
+        if (b.city != 1 || b.sh) continue;
+        double cx = (b.box.x0 + b.box.x1) / 2, cz = (b.box.z0 + b.box.z1) / 2;
+        for (const Missile& m : w.missiles) {
+            if (m.p3.x > -70.0) continue; // only the counterattack aimed at City B
+            double d = std::hypot(cx - m.p3.x, cz - m.p3.z);
+            if (d < 18.0) b.collapseT = std::min(b.collapseT, m.launchT + m.flightT + 0.10 * d);
+        }
+        // Ensure every district of the rival city is visibly damaged by the final volley.
+        if (b.collapseT > 320.0) b.collapseT = 306.0 + hash01(static_cast<uint32_t>(&b - w.buildings.data()), 91) * 11.0;
+        b.collapseDur = 4.0 + rnd() * 2.0;
+        b.shearX = (rnd() - 0.5) * 1.5; b.shearZ = (rnd() - 0.5) * 1.5;
+    }
     const Color carCols[4] = {{200, 50, 50}, {240, 240, 240}, {60, 90, 190}, {230, 190, 40}};
     for (int i = 0; i < 36; ++i) {
         Car c;
@@ -352,20 +378,26 @@ void planWar(World& w) {
 // CHANGED: a key with cut = true is a hard cut: the camera holds the previous key until this time.
 struct CamKey { double t; Vec3 eye, target; bool cut = false; };
 const CamKey CAM[] = {
-    {  0, {70, 48, 70},  {0, 4, 0}},      // dawn, wide shot
-    {120, {95, 50, 20},  {0, 6, 0}},      // orbit while the city rises
-    {180, {20, 55, 95},  {0, 6, 0}},      // peak
-    {210, {70, 35, 40},  {-70, 10, 0}},   // tension: pan to the rival city
-    {240, {60, 40, 45},  {-55, 15, 0}},   // launch
-    {258, {50, 34, 62},  {-6, 9, 0}},     // NEW: swing back to the city, first volley is landing
-    {261, {0, 3.5, 22},  {0, 6.0, 0}, true},   // NEW: CUT, low shot of the statehouse from the avenue
-    {266.5, {0, 4.5, 18.5}, {0, 6.5, 0}}, // NEW: push in while the missile arrives (slow motion starts at 265)
-    {273, {-3.5, 7, 22}, {0, 4, 0}},      // NEW: drift sideways over the falling debris (stays in the avenue)
-    {274, {0, 3.6, 17.5}, {0, 3.2, 5}, true},  // NEW: CUT, the leader seen over the crowd
-    {290, {0, 3.0, 14.5}, {0, 3.4, 5.5}}, // NEW: slow push in on the speech (the barrage rages behind)
-    {291, {60, 38, 60},  {-5, 6, 0}, true},    // NEW: CUT, wide shot of the escalation
-    {300, {70, 52, 60},  {0, 3, 0}},      // aftermath
-    {330, {110, 70, 95}, {0, 3, 0}},      // slow pull-back
+    {  0, {70, 48, 70},  {0, 4, 0}},
+    {120, {95, 50, 20},  {0, 6, 0}},
+    {180, {20, 55, 95},  {0, 6, 0}},
+    {188, {-60, 28, 48}, {-62, 2, 0}},       // leaders meet between the cities
+    {198, {-62, 18, 28}, {-62, 2, 0}},       // close view of the argument
+    {205, {30, 22, 32},  {0, 2, 0}},         // City A leader and ministers
+    {214, {-95, 22, 34}, {-125, 2, 0}},      // City B leader and ministers
+    {226, {-95, 28, 40}, {-125, 4, 0}},      // City B prepares its attack
+    {240, {60, 40, 45},  {-55, 15, 0}},
+    {258, {50, 34, 62},  {-6, 9, 0}},
+    {261, {0, 3.5, 22},  {0, 6.0, 0}, true},
+    {266.5, {0, 4.5, 18.5}, {0, 6.5, 0}},
+    {273, {-3.5, 7, 22}, {0, 4, 0}},
+    {274, {-125, 9, 46}, {-125, 3, 26}, true}, // City B leader rallies the people
+    {290, {-125, 7, 39}, {-125, 3, 26}},
+    {300, {-125, 35, 48}, {-125, 3, 0}, true}, // retaliation begins
+    {318, {-125, 28, 40}, {-125, 2, 0}},
+    {325, {-125, 9, 24}, {-125, -3, 10}, true}, // sewer entrance
+    {340, {-125, 7, 18}, {-125, -4, 10}},
+    {350, {-105, 32, 45}, {-125, 0, 0}},
 };
 void cameraAt(double t, Vec3& eye, Vec3& target) {
     const int n = sizeof(CAM) / sizeof(CAM[0]);
@@ -489,6 +521,72 @@ void drawCentredCube(Color c) {
     glTranslated(-0.5, -0.5, -0.5);
     glCallList(g_cubeList);
     glPopMatrix();
+}
+
+// Low-poly person built from transformed cubes. The same model is reused for
+// leaders, ministers, soldiers and the underground resistance.
+void drawPersonGL(double x, double z, Color shirt, double scale = 1.0, bool armsRaised = false) {
+    const Color skin{225, 178, 145}, trousers{48, 52, 62};
+    glPushMatrix(); glTranslated(x, 0, z); glScaled(scale, scale, scale);
+    glPushMatrix(); glTranslated(0, 1.05, 0); glScaled(0.52, 0.92, 0.34); drawCentredCube(shirt); glPopMatrix();
+    glPushMatrix(); glTranslated(0, 1.78, 0); glScaled(0.34, 0.34, 0.34); drawCentredCube(skin); glPopMatrix();
+    for (int side = -1; side <= 1; side += 2) {
+        glPushMatrix(); glTranslated(side * 0.15, 0.36, 0); glScaled(0.17, 0.68, 0.20); drawCentredCube(trousers); glPopMatrix();
+        glPushMatrix(); glTranslated(side * 0.36, armsRaised ? 1.55 : 1.12, 0);
+        glRotated(armsRaised ? -35.0 : 12.0, 0, 0, 1);
+        glScaled(0.16, 0.72, 0.18); drawCentredCube(shirt); glPopMatrix();
+    }
+    glPopMatrix();
+}
+
+void drawStoryScenes(double t) {
+    const Color leaderA{35, 75, 155}, leaderB{155, 48, 42}, ministerA{70, 110, 175}, ministerB{175, 90, 70};
+    // Peace meeting in a neutral plaza halfway between the cities.
+    if (t >= 185 && t < 198) {
+        groundQuad(-68, -5, -56, 5, 0.35, Color{165, 155, 135});
+        drawBoxGL(Box{-65, -1.2, -60, 1.2, 1.15, Color{95, 65, 42}}); // negotiation table
+        drawPersonGL(-67, 0, leaderA, 1.35, false);
+        drawPersonGL(-58, 0, leaderB, 1.35, false);
+        // ministers stand behind each leader
+        drawPersonGL(-68, -3.2, ministerA, 0.9); drawPersonGL(-66, -3.2, ministerA, 0.9);
+        drawPersonGL(-59, -3.2, ministerB, 0.9); drawPersonGL(-57, -3.2, ministerB, 0.9);
+    }
+    // Each leader returns home for a separate cabinet meeting.
+    if (t >= 198 && t < 212) {
+        drawBoxGL(Box{-4.5, -7.0, 4.5, -4.5, 1.0, Color{85, 65, 48}});
+        drawPersonGL(0, -10, leaderA, 1.2);
+        for (int i = 0; i < 4; ++i) drawPersonGL(-3.5 + i * 2.3, -15, ministerA, 0.9);
+    }
+    if (t >= 212 && t < 226) {
+        drawBoxGL(Box{RIVAL_CENTRE.x - 4.5, -7.0, RIVAL_CENTRE.x + 4.5, -4.5, 1.0, Color{85, 55, 45}});
+        drawPersonGL(RIVAL_CENTRE.x, -10, leaderB, 1.2);
+        for (int i = 0; i < 4; ++i) drawPersonGL(RIVAL_CENTRE.x - 3.5 + i * 2.3, -15, ministerB, 0.9);
+    }
+    // Soldiers and missile racks make the attack preparation legible.
+    if (t >= 226 && t < 240) {
+        for (int i = 0; i < 4; ++i) {
+            drawPersonGL(RIVAL_CENTRE.x - 5 + i * 3.0, 12, ministerB, 0.95);
+            drawBoxGL(Box{RIVAL_CENTRE.x - 6 + i * 3.0, 16, RIVAL_CENTRE.x - 5.1 + i * 3.0, 17, 2.2, Color{105, 110, 120}});
+        }
+    }
+    // Occupation flag and patrols appear after City B has fallen.
+    if (t >= 318) {
+        drawBoxGL(Box{RIVAL_CENTRE.x - 0.12, -0.12, RIVAL_CENTRE.x + 0.12, 0.12, 12.0, Color{185, 185, 190}});
+        drawBoxGL(Box{RIVAL_CENTRE.x + 0.12, -0.12, RIVAL_CENTRE.x + 4.2, 0.12, 9.0, Color{35, 85, 175}});
+        drawPersonGL(RIVAL_CENTRE.x - 5, 4, leaderA, 1.1);
+        drawPersonGL(RIVAL_CENTRE.x + 5, 4, leaderA, 1.1);
+    }
+    // Open sewer cutaway: a dark shaft, tunnel walls and a small rebel group.
+    if (t >= 325) {
+        groundQuad(RIVAL_CENTRE.x - 7, 4, RIVAL_CENTRE.x + 7, 17, 0.32, Color{20, 22, 25});
+        drawBoxGL(Box{RIVAL_CENTRE.x - 7, 4, RIVAL_CENTRE.x - 6.2, 17, 0.1, Color{55, 55, 60}, -0.0, -0.0, -5.5});
+        drawBoxGL(Box{RIVAL_CENTRE.x + 6.2, 4, RIVAL_CENTRE.x + 7, 17, 0.1, Color{55, 55, 60}, -0.0, -0.0, -5.5});
+        drawBoxGL(Box{RIVAL_CENTRE.x - 6.2, 4, RIVAL_CENTRE.x + 6.2, 4.8, 0.1, Color{55, 55, 60}, -0.0, -0.0, -5.5});
+        drawBoxGL(Box{RIVAL_CENTRE.x - 6.2, 16.2, RIVAL_CENTRE.x + 6.2, 17, 0.1, Color{55, 55, 60}, -0.0, -0.0, -5.5});
+        glPushMatrix(); glTranslated(0, -5.0, 0);
+        for (int i = 0; i < 5; ++i) drawPersonGL(RIVAL_CENTRE.x - 4 + i * 2.0, 9.0 + (i % 2) * 2.0, Color{65, 75, 68}, 0.85, true);
+        glPopMatrix();
+    }
 }
 
 // Missile: a box body and a pyramid nose, rotated so that +Z follows the Bezier tangent
@@ -779,7 +877,8 @@ void renderGL(const World& w, double filmT, int fbW, int fbH, const FreeCam& fc)
     }
 
     // NEW: the leader on his podium and the crowd (hierarchy with the OpenGL matrix stack)
-    if (t >= RALLY_T) {
+    if (t >= RALLY_T && t < 306) {
+        glPushMatrix(); glTranslated(RIVAL_CENTRE.x, 0, 20.0); // City B's leader rallies his citizens
         const Color skin{225, 175, 140}, gold{220, 170, 40}, grey{150, 140, 130};
         double pop = easeOutCubic((t - RALLY_T) / 1.5);
         auto mk = [](double x0, double x1, double z0, double z1, double y0, double y1, Color c) {
@@ -814,7 +913,9 @@ void renderGL(const World& w, double filmT, int fbW, int fbH, const FreeCam& fc)
             drawCentredCube(skin);
             glPopMatrix();
         }
+        glPopMatrix();
     }
+    drawStoryScenes(t);
     for (const Missile& m : w.missiles) drawMissileGL(m, t);
 
     // ---- transparent effects: no lighting, no depth writes, blending
@@ -853,6 +954,23 @@ void renderGL(const World& w, double filmT, int fbW, int fbH, const FreeCam& fc)
     if (flash > 0) screenQuad(fbW, fbH, 1.0f, 0.96f, 0.86f, static_cast<float>(std::min(flash, flashCap)));
     double fade = std::min(clamp01(t / 2.0), clamp01((TOTAL_TIME - t) / 4.0));
     if (fade < 1.0) screenQuad(fbW, fbH, 0, 0, 0, static_cast<float>(1.0 - fade));
+    if (t >= 340) {
+        // Compact 5x7 bitmap lettering keeps the ending self-contained (no font library).
+        const char* msg = "TO BE CONTINUED...";
+        auto glyph = [](char c) -> const GLubyte* {
+            static const GLubyte T[7]={31,4,4,4,4,4,4}, O[7]={14,17,17,17,17,17,14};
+            static const GLubyte B[7]={30,17,17,30,17,17,30}, E[7]={31,16,16,30,16,16,31};
+            static const GLubyte C[7]={14,17,16,16,16,17,14}, N[7]={17,25,25,21,19,19,17};
+            static const GLubyte U[7]={17,17,17,17,17,17,14}, D[7]={30,17,17,17,17,17,30};
+            static const GLubyte dot[7]={0,0,0,0,0,4,4}, blank[7]={0,0,0,0,0,0,0};
+            switch(c){case 'T':return T;case 'O':return O;case 'B':return B;case 'E':return E;case 'C':return C;case 'N':return N;case 'U':return U;case 'D':return D;case '.':return dot;default:return blank;}
+        };
+        glColor3f(1.0f, 0.88f, 0.55f);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        int width = 18 * 8;
+        glRasterPos2i((fbW - width) / 2, fbH / 2);
+        for (const char* q = msg; *q; ++q) { const GLubyte* bits = glyph(*q); glBitmap(5, 7, 0, 0, 8, 0, bits); }
+    }
     glDisable(GL_BLEND);
 }
 
@@ -866,15 +984,17 @@ struct App {
 
 // CHANGED: takes STORY time and names the new beats
 const char* phaseName(double t) {
-    if (t < 120) return "Rise";
-    if (t < 180) return "Peak";
-    if (t < 210) return "Tension";
-    if (t < 236) return "Launch";
-    if (t < 261) return "Battle";
-    if (t < 274) return "Statehouse strike";
-    if (t < 291) return "Rally and escalation";
-    if (t < 300) return "Escalation";
-    return "Aftermath";
+    if (t < 120) return "City A rises";
+    if (t < 180) return "Both cities reach their peak";
+    if (t < 198) return "Leaders meet and argue";
+    if (t < 212) return "City A cabinet meeting";
+    if (t < 226) return "City B cabinet meeting";
+    if (t < 240) return "City B prepares its attack";
+    if (t < 274) return "City B attacks City A";
+    if (t < 306) return "City B rallies as war escalates";
+    if (t < 318) return "City B is destroyed";
+    if (t < 325) return "City A occupies the ruins";
+    return "The sewer rebellion | TO BE CONTINUED";
 }
 
 bool saveScreenshot(const char* path, int w, int h) {
@@ -918,7 +1038,8 @@ void onKey(GLFWwindow* win, int key, int, int action, int) {
         case GLFW_KEY_5: a.t = filmTime(240);     break;
         case GLFW_KEY_6: a.t = filmTime(260.5);   break;   // statehouse close-up
         case GLFW_KEY_7: a.t = filmTime(274);     break;   // the leader rallies the crowd
-        case GLFW_KEY_8: a.t = filmTime(300);     break;   // aftermath
+        case GLFW_KEY_8: a.t = filmTime(318);     break;   // occupation
+        case GLFW_KEY_9: a.t = filmTime(330);     break;   // sewer rebellion ending
         default: break;
     }
 }
